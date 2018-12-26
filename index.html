@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+
+<body>
+
+    <dic class="container">
+        <div class="col-sm-8">
+            <h3><button id='upload-btn' class="btn btn-secondary btn-xs">Upload</button></h3>
+            <h3>Preview</h3>
+            <div class="canvas-containter">
+                <canvas id="preview-pica" class="img-responsive" style="max-width: 300px;"></canvas>
+            </div>
+
+            <form method="post" action="/upload.php">
+                <div>
+                    <input id="file" name="img" type="hidden" value="111">
+                    <input id="upload" type="file" style="position: absolute; left: -2000px">
+                </div>
+                <div>
+                    <button type="submit" id="submit" class="btn btn-primary" disabled>Submit</button>
+                </div>
+            </form>
+        </div>
+    </dic>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
+    <script src="node_modules/pica/dist/pica.min.js"></script>
+    <script>
+        const updateResized = _.debounce(function (options = {}) {
+            var preview, ctx, width, start, time;
+
+            width = 1024;
+
+            // Make origin
+            var from = document.createElement('canvas');
+            from.width = img.width;
+            from.height = img.height;
+            from.getContext('2d').drawImage(img, 0, 0);
+
+            // Resize with pica
+            preview = $('#preview-pica')[0];
+            preview.width = width;
+            preview.height = img.height * width / img.width;
+
+            var to = document.createElement('canvas')
+            to.width = preview.width;
+            to.height = preview.height;
+
+            resizer.resize(from, to, options)
+                .then(function (result) {
+                    // preview
+                    preview.getContext('2d', {
+                        alpha: Boolean(options.alpha)
+                    }).drawImage(to, 0, 0);
+
+                    // set image
+                    $('#file').val(to.toDataURL('image/jpeg'));
+
+                    // enable submit
+                    $('#submit').removeAttr('disabled');
+                })
+                .catch(function (err) {
+                    console.error(err);
+                    throw err;
+                });
+        }, 100);
+
+
+        const options = {
+            // esize quality (filter/window) (0..3)
+            quality: 3,
+            // Unsharp amount (0..200):
+            unsharpAmount: 80,
+            // Unsharp radius (0.5..2):
+            unsharpRadius: 0.6,
+            // Unsharp threshold (0..255)
+            unsharpThreshold: 2,
+            // true, false
+            alpha: true,
+            transferable: true,
+        };
+
+        const resizer = window.pica({
+            features: ['js', 'wasm', 'ww']
+        });
+
+        const img = new Image();
+        img.onload = function () {
+            updateResized(options);
+        };
+
+        $('#upload-btn, #src').on('click', function () {
+            $('#upload').trigger('click');
+        });
+
+        $('#upload').on('change', function () {
+            const files = $(this)[0].files;
+
+            if (files.length === 0) {
+                return;
+            }
+            // disable submit
+            $('#submit').attr('disabled', 'disabled');
+            img.src = window.URL.createObjectURL(files[0]);
+        });
+    </script>
+
+</body>
+
+</html>

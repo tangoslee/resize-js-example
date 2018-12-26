@@ -7,6 +7,8 @@ git clone https://github.com/tangoslee/resize-js-example.git
 
 cd resize-js-example
 
+npm install
+
 php -S localhost:8080
 ```
 

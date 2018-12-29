@@ -89,16 +89,19 @@
             img.src = window.URL.createObjectURL(file);
             img.onload = function () {
                 tasks.push(updateResized(img, options));
-
-                Promise.all(tasks).then(function () {
-                    console.log('enable submit');
-                    // enable submit
-                    $('#submit').removeAttr('disabled');
-                });
+                Promise.all(tasks).then(unloading);
             };
         };
 
-        const resizePDF = function (pdf) {
+        const resizePDF = function (file) {
+            PDFWorker = true;
+            pdfjsLib
+                .getDocument(file.name)
+                .then(pdf => extractPDF(pdf));
+        }
+
+
+        const extractPDF = function (pdf) {
             // Fetch the first page
             const tasks = [];
             const pages = pdf.numPages || 1;
@@ -113,11 +116,7 @@
                 tasks.push(task);
             }
 
-            Promise.all(tasks).then(function () {
-                console.log('enable submit');
-                // enable submit
-                $('#submit').removeAttr('disabled');
-            });
+            Promise.all(tasks).then(unloading);
         };
 
         const resizePDFPage = function (page) {
@@ -148,6 +147,15 @@
             });
         }
 
+        const loading = function () {
+            $('#preview-container').empty();
+            $('#files').empty();
+            $('#submit').attr('disabled', 'disabled');
+        }
+
+        const unloading = function () {
+            $('#submit').removeAttr('disabled');
+        }
 
         const options = {
             // esize quality (filter/window) (0..3)
@@ -180,13 +188,10 @@
             const [file] = files;
 
             // disable submit
-            $('#submit').attr('disabled', 'disabled');
+            loading();
 
             if (file.type.indexOf('pdf') !== -1) {
-                PDFWorker = true;
-                pdfjsLib
-                    .getDocument(file.name)
-                    .then(pdf => resizePDF(pdf));
+                resizePDF(file);
             } else {
                 resizeImage(file);
             }

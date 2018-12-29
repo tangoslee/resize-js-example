@@ -1,4 +1,7 @@
-# Resize Example with Pica js
+# Resize Example with Pica.js & PDF.js
+
+Generate reduced size of image file(s) from a image and pdf.
+PDF file that have multiple pages will be extracted multiple images.
 
 ## Run Demo
 

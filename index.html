@@ -8,6 +8,9 @@
     <title>Document</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        #preview-container canvas { max-width: 200px !important; }
+    </style>
 </head>
 
 <body>
@@ -16,64 +19,134 @@
         <div class="col-sm-8">
             <h3><button id='upload-btn' class="btn btn-secondary btn-xs">Upload</button></h3>
             <h3>Preview</h3>
-            <div class="canvas-containter">
-                <canvas id="preview-pica" class="img-responsive" style="max-width: 300px;"></canvas>
+            <div class="canvas-containter" id="preview-container">
+                <!-- <canvas id="preview-pica" class="img-responsive" style="max-width: 300px;"></canvas> -->
             </div>
 
             <form method="post" action="/upload.php">
+                <div id="files"></div>
+                <!-- <input id="file" name="img" type="hidden" value="111"> -->
                 <div>
-                    <input id="file" name="img" type="hidden" value="111">
                     <input id="upload" type="file" style="position: absolute; left: -2000px">
-                </div>
-                <div>
                     <button type="submit" id="submit" class="btn btn-primary" disabled>Submit</button>
                 </div>
             </form>
         </div>
     </dic>
 
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.0.943/pdf.js"></script>
     <script src="node_modules/pica/dist/pica.min.js"></script>
     <script>
-        const updateResized = _.debounce(function (options = {}) {
-            var preview, ctx, width, start, time;
+        const updateResized = function (img, options = {}) {
+            return new Promise((resolve, reject) => {
+                const width = 1024;
 
-            width = 1024;
+                // Make origin
+                const from = document.createElement('canvas');
+                from.width = img.width;
+                from.height = img.height;
+                from.getContext('2d').drawImage(img, 0, 0);
 
-            // Make origin
-            var from = document.createElement('canvas');
-            from.width = img.width;
-            from.height = img.height;
-            from.getContext('2d').drawImage(img, 0, 0);
+                // Resize with pica
+                const preview = document.createElement('canvas');
+                preview.width = width;
+                preview.height = img.height * width / img.width;
+                $('#preview-container').append(preview);
+                // console.log({ src: img.src });
 
-            // Resize with pica
-            preview = $('#preview-pica')[0];
-            preview.width = width;
-            preview.height = img.height * width / img.width;
+                const to = document.createElement('canvas')
+                to.width = preview.width;
+                to.height = preview.height;
 
-            var to = document.createElement('canvas')
-            to.width = preview.width;
-            to.height = preview.height;
+                resizer.resize(from, to, options)
+                    .then(result => {
+                        // preview
+                        preview.getContext('2d', {
+                            alpha: Boolean(options.alpha)
+                        }).drawImage(to, 0, 0);
 
-            resizer.resize(from, to, options)
-                .then(function (result) {
-                    // preview
-                    preview.getContext('2d', {
-                        alpha: Boolean(options.alpha)
-                    }).drawImage(to, 0, 0);
+                        // set image
+                        const el = document.createElement('input');
+                        el.setAttribute('name', 'img[]');
+                        el.setAttribute('style', 'position: absolute; left: -2000px');
+                        el.value = result.toDataURL('image/jpeg');
+                        $('#files').append(el);
 
-                    // set image
-                    $('#file').val(to.toDataURL('image/jpeg'));
+                        resolve();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        reject(err);
+                    });
+            });
+        }
 
+        const resizeImage = function (file) {
+            const tasks = [];
+            const img = new Image();
+            img.src = window.URL.createObjectURL(file);
+            img.onload = function () {
+                tasks.push(updateResized(img, options));
+
+                Promise.all(tasks).then(function () {
+                    console.log('enable submit');
                     // enable submit
                     $('#submit').removeAttr('disabled');
-                })
-                .catch(function (err) {
-                    console.error(err);
-                    throw err;
                 });
-        }, 100);
+            };
+        };
+
+        const resizePDF = function (pdf) {
+            // Fetch the first page
+            const tasks = [];
+            const pages = pdf.numPages || 1;
+            // const pages = 1;
+
+            for (let i = 1; i <= pages; ++i) {
+                const task = new Promise((resolve, reject) => {
+                    pdf.getPage(i).then(page => {
+                        resizePDFPage(page).then(() => resolve());
+                    });
+                });
+                tasks.push(task);
+            }
+
+            Promise.all(tasks).then(function () {
+                console.log('enable submit');
+                // enable submit
+                $('#submit').removeAttr('disabled');
+            });
+        };
+
+        const resizePDFPage = function (page) {
+            return new Promise(function (resolve, reject) {
+                const scale = 1.5;
+                const viewport = page.getViewport(scale);
+
+                // Prepare canvas using PDF page dimensions
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                // Render PDF page into canvas context
+                const render = page.render({ canvasContext: context, viewport: viewport });
+
+                render.promise.then(function () {
+                    // assign img.src
+                    // console.log({ img: canvas.toDataURL('image/jpeg') });
+                    canvas.toBlob(blob => {
+                        const img = new Image();
+                        img.src = window.URL.createObjectURL(blob);
+                        img.onload = function () {
+                            updateResized(img, options).then(() => resolve());
+                        };
+                    });
+                });
+            });
+        }
 
 
         const options = {
@@ -94,11 +167,6 @@
             features: ['js', 'wasm', 'ww']
         });
 
-        const img = new Image();
-        img.onload = function () {
-            updateResized(options);
-        };
-
         $('#upload-btn, #src').on('click', function () {
             $('#upload').trigger('click');
         });
@@ -109,9 +177,20 @@
             if (files.length === 0) {
                 return;
             }
+            const [file] = files;
+
             // disable submit
             $('#submit').attr('disabled', 'disabled');
-            img.src = window.URL.createObjectURL(files[0]);
+
+            if (file.type.indexOf('pdf') !== -1) {
+                PDFWorker = true;
+                pdfjsLib
+                    .getDocument(file.name)
+                    .then(pdf => resizePDF(pdf));
+            } else {
+                resizeImage(file);
+            }
+
         });
     </script>
 

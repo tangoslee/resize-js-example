@@ -20,3 +20,4 @@ Go to <http://localhost:8080>
 ## References
 
 - <https://github.com/nodeca/pica>
+- <https://mozilla.github.io/pdf.js>

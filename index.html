@@ -96,7 +96,7 @@
         const resizePDF = function (file) {
             PDFWorker = true;
             pdfjsLib
-                .getDocument(file.name)
+                .getDocument(URL.createObjectURL(file))
                 .then(pdf => extractPDF(pdf));
         }
 
@@ -131,7 +131,10 @@
                 canvas.width = viewport.width;
 
                 // Render PDF page into canvas context
-                const render = page.render({ canvasContext: context, viewport: viewport });
+                const render = page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                });
 
                 render.promise.then(function () {
                     // assign img.src
@@ -181,7 +184,7 @@
 
         $('#upload').on('change', function () {
             const files = $(this)[0].files;
-
+            
             if (files.length === 0) {
                 return;
             }
